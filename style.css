@@ -111,6 +111,37 @@ select:focus { outline: 2px solid rgba(243, 156, 18, 0.35); border-color: var(--
 .controls { margin-top: 0.7rem; display: flex; justify-content: space-between; align-items: center; }
 .hint { color: var(--muted); font-size: 0.82rem; }
 
+.math-keyboard {
+  margin-top: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem;
+  background: rgba(10, 13, 20, 0.65);
+}
+.keyboard-title {
+  margin: 0 0 0.55rem;
+  color: #d4dcf0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.keyboard-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.mk-key {
+  border: 1px solid #3b4460;
+  background: #1a2030;
+  color: #eff2fb;
+  border-radius: 8px;
+  padding: 0.45rem 0.35rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mk-key:hover { border-color: var(--accent); color: #ffe4b4; }
+.mk-key.danger { background: #332029; border-color: #6b3a4a; }
+
 .btn-primary,
 .btn-secondary {
   border: 0;
@@ -202,6 +233,7 @@ select:focus { outline: 2px solid rgba(243, 156, 18, 0.35); border-color: var(--
 }
 
 @media (max-width: 700px) {
+  .keyboard-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .two-col { grid-template-columns: 1fr; }
   .two-col article + article { border-left: 0; border-top: 1px solid var(--line); }
   .topbar-right { display: none; }

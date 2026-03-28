@@ -26,7 +26,8 @@ function renderMath(target, latex) {
   }
 }
 
-function normalizeExpr(raw) {
+
+function normalizeAlgebraExpr(raw) {
   return raw
     .trim()
     .replace(/\s+/g, '')
@@ -34,11 +35,21 @@ function normalizeExpr(raw) {
     .replace(/×/g, '*')
     .replace(/÷/g, '/')
     .replace(/−/g, '-')
+    .replace(/pi/gi, 'Math.PI')
+    .replace(/theta/gi, 'x')
+    .replace(/(\d)([xX(])/g, '$1*$2')
+    .replace(/([xX)])(\d)/g, '$1*$2')
+    .replace(/([xX])(\()/g, '$1*$2')
+    .replace(/(\))(\()/g, '$1*$2')
     .replace(/(\d+)%/g, '($1/100)');
 }
 
+function normalizeExpr(raw) {
+  return normalizeAlgebraExpr(raw);
+}
+
 function safeEval(expr, xValue = null) {
-  if (!/^[\dxX+\-*/().!%*]+$/.test(expr)) throw new Error('unsupported expression');
+  if (!/^[\dxX+\-*/().!%*MathPI]+$/.test(expr)) throw new Error('unsupported expression');
   const compiled = xValue === null
     ? Function(`'use strict';return (${expr});`)
     : Function('x', `'use strict';return (${expr.replace(/[xX]/g, 'x')});`);
@@ -48,9 +59,11 @@ function safeEval(expr, xValue = null) {
 }
 
 function parseLinearOrQuadratic(eqText) {
-  const compact = eqText.replace(/\s+/g, '').replace(/\^/g, '**');
+  const compact = eqText.replace(/\s+/g, '');
   if ((compact.match(/=/g) || []).length !== 1) return null;
-  const [left, right] = compact.split('=');
+  const [leftRaw, rightRaw] = compact.split('=');
+  const left = normalizeAlgebraExpr(leftRaw);
+  const right = normalizeAlgebraExpr(rightRaw);
 
   const f = (x) => safeEval(`(${left})-(${right})`, x);
   const f0 = f(0);
@@ -194,6 +207,25 @@ async function solveWithOpenAI(problem, apiKey, model) {
   };
 }
 
+
+function solveLinearWordProblem(input) {
+  const m = input.match(/solve(?:\s*for\s*x)?[:]?\s*([\d xX+\-*/().^=]+)/i);
+  if (!m) return null;
+  const equation = m[1].trim();
+  if (!equation.includes('=')) return null;
+  return parseLinearOrQuadratic(equation);
+}
+
+function insertAtCursor(input, text, cursorOffset = 0) {
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const value = input.value;
+  input.value = `${value.slice(0, start)}${text}${value.slice(end)}`;
+  const pos = start + text.length - cursorOffset;
+  input.focus();
+  input.setSelectionRange(pos, pos);
+}
+
 async function handleSolve() {
   const input = document.getElementById('problemInput').value.trim();
   const resultArea = document.getElementById('resultArea');
@@ -257,6 +289,24 @@ async function handleSolve() {
       return;
     }
 
+    const wordEq = solveLinearWordProblem(input);
+    if (wordEq) {
+      if (wordEq.kind === 'linear') {
+        renderMath(resultPod, `$$x = ${wordEq.x.toFixed(8)}$$`);
+      } else if (wordEq.kind === 'quadratic-real') {
+        renderMath(resultPod, `$$x_1=${wordEq.x1.toFixed(8)},\;x_2=${wordEq.x2.toFixed(8)}$$`);
+      } else if (wordEq.kind === 'quadratic-complex') {
+        renderMath(resultPod, `$$x=${wordEq.real.toFixed(8)}\pm ${wordEq.imag.toFixed(8)}i$$`);
+      } else if (wordEq.kind === 'identity') {
+        resultPod.textContent = 'Infinitely many solutions.';
+      } else {
+        resultPod.textContent = 'No solution.';
+      }
+      stepsPod.innerHTML = '<pre>Detected a solve-for-x algebra request and normalized implied multiplication before solving.</pre>';
+      assumptionsPod.innerHTML = '<pre>Assumed single-variable equation in x (linear/quadratic).</pre>';
+      return;
+    }
+
     if (input.includes('=')) {
       const eq = parseLinearOrQuadratic(input);
       if (eq) {
@@ -285,7 +335,7 @@ async function handleSolve() {
   } catch (error) {
     resultPod.textContent = 'Could not compute this input locally. Add OpenAI key or Wolfram AppID to enable AI solving.';
     stepsPod.innerHTML = `<pre>${escapeHtml(error.message)}</pre>`;
-    assumptionsPod.innerHTML = '<pre>Local symbolic parser currently supports arithmetic, simple equations, polynomial derivatives, and basic speed-unit conversion.</pre>';
+    assumptionsPod.innerHTML = '<pre>Local symbolic parser currently supports arithmetic, solve-for-x algebra (linear/quadratic), polynomial derivatives, and basic speed-unit conversion.</pre>';
   }
 }
 
@@ -389,5 +439,28 @@ window.addEventListener('DOMContentLoaded', () => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       handleSolve();
     }
+  });
+
+  document.querySelectorAll('.mk-key').forEach((button) => {
+    button.addEventListener('click', () => {
+      const action = button.dataset.action;
+      if (action === 'backspace') {
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        if (start === end && start > 0) {
+          input.value = `${input.value.slice(0, start - 1)}${input.value.slice(end)}`;
+          input.setSelectionRange(start - 1, start - 1);
+        } else {
+          input.value = `${input.value.slice(0, start)}${input.value.slice(end)}`;
+          input.setSelectionRange(start, start);
+        }
+        input.focus();
+        return;
+      }
+
+      const text = button.dataset.insert || '';
+      const cursorOffset = Number(button.dataset.cursorOffset || 0);
+      insertAtCursor(input, text, cursorOffset);
+    });
   });
 });
