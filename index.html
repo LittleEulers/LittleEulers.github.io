@@ -175,6 +175,27 @@
         <div class="textarea-corner br"></div>
       </div>
 
+      <div class="solver-config">
+        <div class="config-grid">
+          <div class="field full">
+            <label for="openaiApiKey">OpenAI API Key (optional)</label>
+            <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="openaiModel">Model</label>
+            <input type="text" id="openaiModel" value="gpt-4.1-mini" />
+          </div>
+          <div class="field field-check">
+            <label for="useOpenAI">Solver Mode</label>
+            <label class="check-row">
+              <input type="checkbox" id="useOpenAI" checked />
+              <span>Use OpenAI when key is present</span>
+            </label>
+          </div>
+        </div>
+        <p class="config-note">Tip: For production, proxy API calls through your backend instead of exposing keys in browser code.</p>
+      </div>
+
       <div class="solver-bar">
         <span class="kb-hint">⌘ Enter to solve</span>
         <button class="btn-solve" id="solveBtn" onclick="handleSolve()">
