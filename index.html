@@ -56,16 +56,28 @@
               <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" />
             </div>
             <div>
-              <label for="openaiModel">Model</label>
+              <label for="aiProvider">AI Provider</label>
+              <select id="aiProvider">
+                <option value="openai">OpenAI</option>
+                <option value="wolfram">Wolfram|Alpha NLU</option>
+                <option value="local">Local only</option>
+              </select>
+            </div>
+            <div>
+              <label for="openaiModel">OpenAI Model</label>
               <input type="text" id="openaiModel" value="gpt-4.1-mini" />
+            </div>
+            <div>
+              <label for="wolframAppId">Wolfram AppID</label>
+              <input type="password" id="wolframAppId" placeholder="XXXXXXXXXX" autocomplete="off" />
             </div>
             <label class="toggle-row">
               <input type="checkbox" id="useOpenAI" checked />
-              <span>Use AI enhancement when a key exists</span>
+              <span>Use selected AI provider when credentials exist</span>
             </label>
             <label class="toggle-row">
               <input type="checkbox" id="rememberApiKey" />
-              <span>Remember key on this device (localStorage)</span>
+              <span>Remember credentials on this device (localStorage)</span>
             </label>
             <button type="button" class="btn-clear" onclick="clearSavedKey()">Clear saved key</button>
           </div>

@@ -1,6 +1,8 @@
 window.__futureflowAppLoaded = true;
 
 const API_KEY_STORAGE_KEY = 'futureflow_openai_api_key';
+const WOLFRAM_APPID_STORAGE_KEY = 'futureflow_wolfram_appid';
+const AI_PROVIDER_STORAGE_KEY = 'futureflow_ai_provider';
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({
@@ -135,6 +137,25 @@ function unitConvert(text) {
   return { value, from, to, converted };
 }
 
+async function solveWithWolfram(problem, appId) {
+  const endpoint = `https://api.wolframalpha.com/v1/result?appid=${encodeURIComponent(appId)}&i=${encodeURIComponent(problem)}`;
+  const response = await fetch(endpoint, { method: 'GET' });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Wolfram error ${response.status}: ${err.slice(0, 140)}`);
+  }
+
+  const final = (await response.text()).trim();
+  if (!final) throw new Error('No Wolfram result text.');
+
+  return {
+    final,
+    steps: 'Wolfram|Alpha short-answer endpoint returns a concise result without full derivation steps.',
+    assumptions: 'Input was interpreted using Wolfram|Alpha natural language understanding.'
+  };
+}
+
 async function solveWithOpenAI(problem, apiKey, model) {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -181,13 +202,19 @@ async function handleSolve() {
   const stepsPod = document.getElementById('stepsPod');
   const assumptionsPod = document.getElementById('assumptionsPod');
   const apiKeyInput = document.getElementById('openaiApiKey');
+  const wolframInput = document.getElementById('wolframAppId');
+  const providerInput = document.getElementById('aiProvider');
   const rememberApiKey = document.getElementById('rememberApiKey');
   const apiKey = apiKeyInput.value.trim();
+  const wolframAppId = wolframInput.value.trim();
+  const aiProvider = providerInput.value;
   const model = document.getElementById('openaiModel').value.trim();
   const useOpenAI = document.getElementById('useOpenAI').checked;
 
-  if (rememberApiKey?.checked && apiKey) {
-    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  if (rememberApiKey?.checked) {
+    if (apiKey) localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+    if (wolframAppId) localStorage.setItem(WOLFRAM_APPID_STORAGE_KEY, wolframAppId);
+    localStorage.setItem(AI_PROVIDER_STORAGE_KEY, aiProvider);
   }
 
   if (!input) return;
@@ -196,9 +223,17 @@ async function handleSolve() {
   interpretationPod.textContent = input;
 
   try {
-    if (useOpenAI && apiKey) {
+    if (useOpenAI && aiProvider === 'openai' && apiKey) {
       const ai = await solveWithOpenAI(input, apiKey, model);
       renderMath(resultPod, `$$${escapeHtml(ai.final)}$$`);
+      stepsPod.innerHTML = `<pre>${escapeHtml(ai.steps)}</pre>`;
+      assumptionsPod.innerHTML = `<pre>${escapeHtml(ai.assumptions)}</pre>`;
+      return;
+    }
+
+    if (useOpenAI && aiProvider === 'wolfram' && wolframAppId) {
+      const ai = await solveWithWolfram(input, wolframAppId);
+      resultPod.textContent = ai.final;
       stepsPod.innerHTML = `<pre>${escapeHtml(ai.steps)}</pre>`;
       assumptionsPod.innerHTML = `<pre>${escapeHtml(ai.assumptions)}</pre>`;
       return;
@@ -248,7 +283,7 @@ async function handleSolve() {
     stepsPod.innerHTML = '<pre>Parsed arithmetic expression and evaluated in strict function scope.</pre>';
     assumptionsPod.innerHTML = '<pre>Assumed pure arithmetic expression with supported operators.</pre>';
   } catch (error) {
-    resultPod.textContent = 'Could not compute this input locally. Add an API key to enable AI solving.';
+    resultPod.textContent = 'Could not compute this input locally. Add OpenAI key or Wolfram AppID to enable AI solving.';
     stepsPod.innerHTML = `<pre>${escapeHtml(error.message)}</pre>`;
     assumptionsPod.innerHTML = '<pre>Local symbolic parser currently supports arithmetic, simple equations, polynomial derivatives, and basic speed-unit conversion.</pre>';
   }
@@ -318,20 +353,37 @@ function quickConvert() {
 
 function clearSavedKey() {
   localStorage.removeItem(API_KEY_STORAGE_KEY);
+  localStorage.removeItem(WOLFRAM_APPID_STORAGE_KEY);
+  localStorage.removeItem(AI_PROVIDER_STORAGE_KEY);
   const apiKeyInput = document.getElementById('openaiApiKey');
+  const wolframInput = document.getElementById('wolframAppId');
+  const providerInput = document.getElementById('aiProvider');
   const rememberInput = document.getElementById('rememberApiKey');
   if (apiKeyInput) apiKeyInput.value = '';
+  if (wolframInput) wolframInput.value = '';
+  if (providerInput) providerInput.value = 'openai';
   if (rememberInput) rememberInput.checked = false;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('problemInput');
   const apiKeyInput = document.getElementById('openaiApiKey');
+  const wolframInput = document.getElementById('wolframAppId');
+  const providerInput = document.getElementById('aiProvider');
   const rememberInput = document.getElementById('rememberApiKey');
   const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  const savedWolfram = localStorage.getItem(WOLFRAM_APPID_STORAGE_KEY);
+  const savedProvider = localStorage.getItem(AI_PROVIDER_STORAGE_KEY);
   if (savedKey && apiKeyInput) {
     apiKeyInput.value = savedKey;
     if (rememberInput) rememberInput.checked = true;
+  }
+  if (savedWolfram && wolframInput) {
+    wolframInput.value = savedWolfram;
+    if (rememberInput) rememberInput.checked = true;
+  }
+  if (savedProvider && providerInput) {
+    providerInput.value = savedProvider;
   }
   input.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
