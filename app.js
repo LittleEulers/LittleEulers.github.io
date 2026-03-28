@@ -1,14 +1,15 @@
-// FutureFlow Math Hub logic.
 window.__futureflowAppLoaded = true;
 
-const toolState = {
-  tri: 'area',
-  nt: 'prime'
-};
+const API_KEY_STORAGE_KEY = 'futureflow_openai_api_key';
 
-function safeNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : NaN;
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
 }
 
 function renderMath(target, latex) {
@@ -23,43 +24,118 @@ function renderMath(target, latex) {
   }
 }
 
-function toggleMenu() {
-  document.getElementById('mobileNav').classList.toggle('open');
+function normalizeExpr(raw) {
+  return raw
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/\^/g, '**')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/(\d+)%/g, '($1/100)');
 }
 
-function toggleTool(id) {
-  const card = document.getElementById(id);
-  if (!card) return;
-  card.classList.toggle('open');
-  const expanded = card.classList.contains('open');
-  card.querySelector('.tool-header')?.setAttribute('aria-expanded', String(expanded));
+function safeEval(expr, xValue = null) {
+  if (!/^[\dxX+\-*/().!%*]+$/.test(expr)) throw new Error('unsupported expression');
+  const compiled = xValue === null
+    ? Function(`'use strict';return (${expr});`)
+    : Function('x', `'use strict';return (${expr.replace(/[xX]/g, 'x')});`);
+  const result = xValue === null ? compiled() : compiled(xValue);
+  if (!Number.isFinite(result)) throw new Error('non-finite result');
+  return result;
 }
 
-function switchTab(group, tabKey, button) {
-  toolState[group] = tabKey;
-  const card = button.closest('.tool-card');
-  card.querySelectorAll('.tab').forEach((tab) => tab.classList.remove('active'));
-  button.classList.add('active');
-  card.querySelectorAll('.tab-pane').forEach((pane) => pane.classList.remove('active'));
-  card.querySelector(`#${group}-${tabKey}`)?.classList.add('active');
-}
+function parseLinearOrQuadratic(eqText) {
+  const compact = eqText.replace(/\s+/g, '').replace(/\^/g, '**');
+  if ((compact.match(/=/g) || []).length !== 1) return null;
+  const [left, right] = compact.split('=');
 
-function placeholderLLMSolve(problem) {
+  const f = (x) => safeEval(`(${left})-(${right})`, x);
+  const f0 = f(0);
+  const f1 = f(1);
+  const f2 = f(2);
+
+  const c = f0;
+  const a = (f2 - (2 * f1) + f0) / 2;
+  const b = f1 - a - c;
+  const eps = 1e-9;
+
+  if (Math.abs(a) < eps && Math.abs(b) < eps) {
+    if (Math.abs(c) < eps) return { kind: 'identity' };
+    return { kind: 'none' };
+  }
+
+  if (Math.abs(a) < eps) {
+    const x = -c / b;
+    return { kind: 'linear', x, a, b, c };
+  }
+
+  const d = (b * b) - (4 * a * c);
+  if (d >= 0) {
+    return {
+      kind: 'quadratic-real',
+      x1: (-b + Math.sqrt(d)) / (2 * a),
+      x2: (-b - Math.sqrt(d)) / (2 * a),
+      a,
+      b,
+      c,
+      d
+    };
+  }
   return {
-    mode: 'llm-placeholder',
-    latex: `I parsed this as a word/problem-solving query:\\[4pt]\\texttt{${problem.replace(/\\/g, '\\\\').replace(/_/g, '\\_')}}\\[4pt]Connect this function to Gemini/OpenAI for step-by-step reasoning.`
+    kind: 'quadratic-complex',
+    real: -b / (2 * a),
+    imag: Math.sqrt(-d) / Math.abs(2 * a),
+    a,
+    b,
+    c,
+    d
   };
 }
 
-async function solveWithOpenAI(problem, apiKey, model) {
-  const instructions = [
-    'You are a math tutor.',
-    'Solve the user problem clearly.',
-    'Return concise output with two sections using plain text:',
-    'FINAL_ANSWER: (single line result)',
-    'STEPS: (short numbered steps, may include LaTeX wrapped with $...$ or $$...$$).'
-  ].join(' ');
+function derivativePoly(text) {
+  const m = text.match(/derivative of\s*([\dxX+\-*/^ ().]+)/i);
+  if (!m) return null;
+  const expr = m[1].replace(/\s+/g, '');
+  const terms = expr.replace(/-/g, '+-').split('+').filter(Boolean);
+  const out = [];
+  terms.forEach((term) => {
+    const cleaned = term.replace(/\*/g, '');
+    const powMatch = cleaned.match(/^([+-]?\d*\.?\d*)?[xX]\^(\d+)$/);
+    const linearMatch = cleaned.match(/^([+-]?\d*\.?\d*)?[xX]$/);
+    const constantMatch = cleaned.match(/^[+-]?\d*\.?\d+$/);
 
+    if (powMatch) {
+      const c = powMatch[1] === '' || powMatch[1] === '+' || powMatch[1] == null ? 1 : (powMatch[1] === '-' ? -1 : Number(powMatch[1]));
+      const n = Number(powMatch[2]);
+      const nc = c * n;
+      const np = n - 1;
+      out.push(np === 1 ? `${nc}x` : `${nc}x^${np}`);
+    } else if (linearMatch) {
+      const c = linearMatch[1] === '' || linearMatch[1] === '+' || linearMatch[1] == null ? 1 : (linearMatch[1] === '-' ? -1 : Number(linearMatch[1]));
+      out.push(String(c));
+    } else if (constantMatch) {
+      out.push('0');
+    } else {
+      out.push('d/dx(' + cleaned + ')');
+    }
+  });
+  return { expr, derivative: out.filter((t) => t !== '0').join(' + ').replace(/\+ -/g, '- ') || '0' };
+}
+
+function unitConvert(text) {
+  const m = text.match(/([+-]?\d*\.?\d+)\s*(mph|km\/h|kmh|m\/s|ms)\s*(to|in)\s*(mph|km\/h|kmh|m\/s|ms)/i);
+  if (!m) return null;
+  const value = Number(m[1]);
+  const from = m[2].toLowerCase().replace('km/h', 'kmh').replace('m/s', 'ms');
+  const to = m[4].toLowerCase().replace('km/h', 'kmh').replace('m/s', 'ms');
+  const toMs = { mph: 0.44704, kmh: 0.2777777778, ms: 1 };
+  const fromMs = { mph: 2.2369362921, kmh: 3.6, ms: 1 };
+  const converted = value * toMs[from] * fromMs[to];
+  return { value, from, to, converted };
+}
+
+async function solveWithOpenAI(problem, apiKey, model) {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -69,260 +145,134 @@ async function solveWithOpenAI(problem, apiKey, model) {
     body: JSON.stringify({
       model: model || 'gpt-4.1-mini',
       input: [
-        { role: 'system', content: [{ type: 'input_text', text: instructions }] },
+        {
+          role: 'system',
+          content: [{
+            type: 'input_text',
+            text: 'You are FutureFlow, a computational assistant. Return strict sections: FINAL:, STEPS:, ASSUMPTIONS:.'
+          }]
+        },
         { role: 'user', content: [{ type: 'input_text', text: problem }] }
       ]
     })
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenAI API error (${response.status}): ${errorText.slice(0, 180)}`);
+    const err = await response.text();
+    throw new Error(`OpenAI error ${response.status}: ${err.slice(0, 140)}`);
   }
 
   const data = await response.json();
-  const text = (data.output_text || '').trim();
-  if (!text) throw new Error('OpenAI response did not include output_text.');
+  const output = (data.output_text || '').trim();
+  if (!output) throw new Error('No model output text.');
 
-  const finalMatch = text.match(/FINAL_ANSWER:\\s*([\\s\\S]*?)(?:\\nSTEPS:|$)/i);
-  const stepsMatch = text.match(/STEPS:\\s*([\\s\\S]*)$/i);
-  const finalAnswer = (finalMatch?.[1] || text).trim();
-  const stepText = (stepsMatch?.[1] || 'No steps provided by model.').trim();
-
-  return { finalAnswer, stepText, raw: text };
-}
-
-function cleanArithmeticExpression(problem) {
-  return problem
-    .trim()
-    .replace(/²/g, '^2')
-    .replace(/³/g, '^3')
-    .replace(/[?]/g, '')
-    .replace(/=\s*$/, '')
-    .replace(/\s+/g, ' ')
-    .replace(/×/g, '*')
-    .replace(/÷/g, '/')
-    .replace(/−/g, '-')
-    .replace(/\^/g, '**');
-}
-
-function trySimpleEval(problem) {
-  const normalized = cleanArithmeticExpression(problem);
-  const safePattern = /^[\d\s+\-*/().,%!*]+$/;
-  if (!safePattern.test(normalized)) return null;
-
-  // Support very small percent convenience, e.g., 50% -> 0.5.
-  const percentAdjusted = normalized.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
-
-  // eslint-disable-next-line no-new-func
-  const value = Function(`'use strict'; return (${percentAdjusted});`)();
-  if (!Number.isFinite(value)) throw new Error('Result was not finite');
-  return value;
-}
-
-function trySolveEquation(problem) {
-  const normalizedProblem = problem
-    .trim()
-    .replace(/²/g, '^2')
-    .replace(/³/g, '^3');
-
-  const embedded = normalizedProblem.match(/([0-9xX+\-*/().^\s]+=[0-9xX+\-*/().^\s]+)/);
-  const raw = (embedded ? embedded[1] : normalizedProblem).replace(/\s+/g, '');
-  if (!raw.includes('=') || (raw.match(/=/g) || []).length !== 1) return null;
-  if (!/^[0-9xX+\-*/().=^]+$/.test(raw)) return null;
-
-  const [leftRaw, rightRaw] = raw.split('=');
-  if (!leftRaw || !rightRaw) return null;
-
-  const normalizeSide = (side) => side
-    .replace(/\^/g, '**')
-    .replace(/(\d)([xX])/g, '$1*$2')
-    .replace(/([xX])(\d)/g, '$1*$2')
-    .replace(/([xX])\(/g, '$1*(')
-    .replace(/\)([xX\d])/g, ')*$1');
-
-  const left = normalizeSide(leftRaw);
-  const right = normalizeSide(rightRaw);
-
-  const safePattern = /^[0-9xX+\-*/().]+$/;
-  if (!safePattern.test(left) || !safePattern.test(right)) return null;
-
-  // eslint-disable-next-line no-new-func
-  const fn = Function('x', `'use strict'; return ((${left}) - (${right}));`);
-  const f0 = Number(fn(0));
-  const f1 = Number(fn(1));
-  const f2 = Number(fn(2));
-
-  if (![f0, f1, f2].every(Number.isFinite)) return null;
-
-  const c = f0;
-  const a = (f2 - (2 * f1) + f0) / 2;
-  const b = f1 - a - c;
-  const eps = 1e-9;
-
-  if (Math.abs(a) < eps && Math.abs(b) < eps) {
-    if (Math.abs(c) < eps) {
-      return { type: 'identity', latex: '$$\\text{Infinitely many solutions}$$' };
-    }
-    return { type: 'contradiction', latex: '$$\\text{No solution}$$' };
-  }
-
-  if (Math.abs(a) < eps) {
-    const x = -c / b;
-    return {
-      type: 'linear',
-      latex: `$$${b.toFixed(6)}x + ${c.toFixed(6)} = 0$$ $$x = ${x.toFixed(6)}$$`
-    };
-  }
-
-  const d = (b * b) - (4 * a * c);
-  if (d >= 0) {
-    const x1 = (-b + Math.sqrt(d)) / (2 * a);
-    const x2 = (-b - Math.sqrt(d)) / (2 * a);
-    return {
-      type: 'quadratic-real',
-      latex: `$$x = \\frac{-(${b.toFixed(6)}) \\pm \\sqrt{${d.toFixed(6)}}}{${(2 * a).toFixed(6)}}$$ $$x_1=${x1.toFixed(6)},\\;x_2=${x2.toFixed(6)}$$`
-    };
-  }
-
-  const real = -b / (2 * a);
-  const imag = Math.sqrt(-d) / Math.abs(2 * a);
   return {
-    type: 'quadratic-complex',
-    latex: `$$x = ${real.toFixed(6)} \\pm ${imag.toFixed(6)}i$$`
+    final: (output.match(/FINAL:\s*([\s\S]*?)(?:\n\s*STEPS:|$)/i)?.[1] || output).trim(),
+    steps: (output.match(/STEPS:\s*([\s\S]*?)(?:\n\s*ASSUMPTIONS:|$)/i)?.[1] || 'No steps provided').trim(),
+    assumptions: (output.match(/ASSUMPTIONS:\s*([\s\S]*)$/i)?.[1] || 'No assumptions listed').trim()
   };
 }
 
 async function handleSolve() {
-  const inputEl = document.getElementById('problemInput');
-  const outputPanel = document.getElementById('solverResult');
-  const body = document.getElementById('resultBody');
-  const steps = document.getElementById('resultSteps');
-  const overlay = document.getElementById('thinkOverlay');
-  const progress = document.getElementById('thinkProgress');
-  const msg = document.getElementById('thinkMsg');
+  const input = document.getElementById('problemInput').value.trim();
+  const resultArea = document.getElementById('resultArea');
+  const interpretationPod = document.getElementById('interpretationPod');
+  const resultPod = document.getElementById('resultPod');
+  const stepsPod = document.getElementById('stepsPod');
+  const assumptionsPod = document.getElementById('assumptionsPod');
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberApiKey = document.getElementById('rememberApiKey');
+  const apiKey = apiKeyInput.value.trim();
+  const model = document.getElementById('openaiModel').value.trim();
+  const useOpenAI = document.getElementById('useOpenAI').checked;
 
-  const raw = inputEl.value.trim();
-  const apiKey = document.getElementById('openaiApiKey')?.value?.trim() || '';
-  const model = document.getElementById('openaiModel')?.value?.trim() || 'gpt-4.1-mini';
-  const useOpenAI = document.getElementById('useOpenAI')?.checked;
-  if (!raw) {
-    body.textContent = 'Please enter a problem first.';
-    steps.textContent = '';
-    outputPanel.hidden = false;
-    return;
+  if (rememberApiKey?.checked && apiKey) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
   }
 
-  overlay.hidden = false;
-  const phases = ['Tokenizing input…', 'Detecting problem type…', 'Computing result…', 'Formatting LaTeX output…'];
+  if (!input) return;
 
-  for (let i = 0; i < phases.length; i += 1) {
-    msg.textContent = phases[i];
-    progress.style.width = `${((i + 1) / phases.length) * 100}%`;
-    // Simulated "thinking" animation for a mock frontend.
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => setTimeout(resolve, 320));
-  }
+  resultArea.hidden = false;
+  interpretationPod.textContent = input;
 
   try {
-    let resultText = '';
     if (useOpenAI && apiKey) {
-      const aiResult = await solveWithOpenAI(raw, apiKey, model);
-      resultText = `$$\\text{AI Result}$$<br/>${aiResult.finalAnswer}`;
-      steps.innerHTML = `<pre>${aiResult.stepText.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}</pre>`;
-    } else {
-      const simpleValue = trySimpleEval(raw);
-      const equationResult = simpleValue === null ? trySolveEquation(raw) : null;
-
-      if (simpleValue !== null) {
-        resultText = `$$\\text{Result} = ${Number(simpleValue.toFixed(10)).toString()}$$`;
-        steps.innerHTML = '<ol><li>Input recognized as arithmetic expression.</li><li>Evaluated safely in a strict expression context.</li><li>Rendered as LaTeX.</li></ol>';
-      } else if (equationResult) {
-        resultText = equationResult.latex;
-        steps.innerHTML = '<ol><li>Input recognized as an equation in <code>x</code>.</li><li>Polynomial coefficients estimated (up to degree 2).</li><li>Solution rendered in LaTeX.</li></ol>';
-      } else {
-        const llmResult = placeholderLLMSolve(raw);
-        resultText = `$$\\text{Mode}: ${llmResult.mode}$$<br/>${llmResult.latex}`;
-        steps.innerHTML = '<ol><li>Input contained non-arithmetic symbols/words.</li><li>No API key was provided, so local fallback was used.</li><li>Add key to use OpenAI for full natural-language solving.</li></ol>';
-      }
-    }
-
-    renderMath(body, resultText);
-    outputPanel.hidden = false;
-  } catch (error) {
-    renderMath(body, `$$\\text{Error: could not solve this input.}$$`);
-    steps.textContent = `Details: ${error.message}`;
-    outputPanel.hidden = false;
-  } finally {
-    setTimeout(() => {
-      overlay.hidden = true;
-      progress.style.width = '0%';
-    }, 180);
-  }
-}
-
-function copyOutput() {
-  const text = document.getElementById('resultBody').innerText.trim();
-  if (!text) return;
-  navigator.clipboard.writeText(text).catch(() => {
-    // Clipboard may fail in some contexts; ignore gracefully.
-  });
-}
-
-function solveQuadratic() {
-  const a = safeNumber(document.getElementById('q-a').value);
-  const b = safeNumber(document.getElementById('q-b').value);
-  const c = safeNumber(document.getElementById('q-c').value);
-  const out = document.getElementById('quadratic-result');
-
-  if ([a, b, c].some((v) => Number.isNaN(v))) {
-    out.textContent = 'Enter valid numeric values for a, b, c.';
-    return;
-  }
-  if (a === 0) {
-    out.textContent = 'Coefficient a cannot be 0 for a quadratic equation.';
-    return;
-  }
-
-  const d = b * b - 4 * a * c;
-  const twoA = 2 * a;
-
-  if (d >= 0) {
-    const x1 = (-b + Math.sqrt(d)) / twoA;
-    const x2 = (-b - Math.sqrt(d)) / twoA;
-    renderMath(out, `$$x = \\frac{-(${b}) \\pm \\sqrt{${d}}}{${twoA}}$$ $$x_1=${x1.toFixed(6)},\\;x_2=${x2.toFixed(6)}$$`);
-  } else {
-    const real = (-b / twoA).toFixed(6);
-    const imag = (Math.sqrt(-d) / Math.abs(twoA)).toFixed(6);
-    renderMath(out, `$$x = ${real} \\pm ${imag}i$$`);
-  }
-}
-
-function solveTriangle() {
-  const out = document.getElementById('triangle-result');
-
-  if (toolState.tri === 'area') {
-    const base = safeNumber(document.getElementById('tri-base').value);
-    const height = safeNumber(document.getElementById('tri-height').value);
-    if ([base, height].some((v) => Number.isNaN(v) || v <= 0)) {
-      out.textContent = 'Base and height must both be positive numbers.';
+      const ai = await solveWithOpenAI(input, apiKey, model);
+      renderMath(resultPod, `$$${escapeHtml(ai.final)}$$`);
+      stepsPod.innerHTML = `<pre>${escapeHtml(ai.steps)}</pre>`;
+      assumptionsPod.innerHTML = `<pre>${escapeHtml(ai.assumptions)}</pre>`;
       return;
     }
 
-    const area = (base * height) / 2;
-    renderMath(out, `$$A = \\frac{1}{2}bh = \\frac{1}{2}(${base})(${height}) = ${area}$$`);
+    const deriv = derivativePoly(input);
+    if (deriv) {
+      renderMath(resultPod, `$$\
+      \\frac{d}{dx}\left(${deriv.expr.replace(/\*/g, '')}\right) = ${deriv.derivative.replace(/\*/g, '')}
+      $$`);
+      stepsPod.innerHTML = '<pre>Detected polynomial-like input and applied power rule term-by-term.</pre>';
+      assumptionsPod.innerHTML = '<pre>Assumed variable is x and expression is differentiable term-wise.</pre>';
+      return;
+    }
+
+    const conv = unitConvert(input);
+    if (conv) {
+      renderMath(resultPod, `$$${conv.value}\,${conv.from} = ${conv.converted.toFixed(6)}\,${conv.to}$$`);
+      stepsPod.innerHTML = '<pre>Converted source unit to m/s and then to destination unit.</pre>';
+      assumptionsPod.innerHTML = '<pre>Interpreted speed units with standard SI conversion factors.</pre>';
+      return;
+    }
+
+    if (input.includes('=')) {
+      const eq = parseLinearOrQuadratic(input);
+      if (eq) {
+        if (eq.kind === 'identity') {
+          resultPod.textContent = 'Infinitely many solutions.';
+        } else if (eq.kind === 'none') {
+          resultPod.textContent = 'No solution.';
+        } else if (eq.kind === 'linear') {
+          renderMath(resultPod, `$$x = ${eq.x.toFixed(8)}$$`);
+        } else if (eq.kind === 'quadratic-real') {
+          renderMath(resultPod, `$$x_1=${eq.x1.toFixed(8)},\;x_2=${eq.x2.toFixed(8)}$$`);
+        } else {
+          renderMath(resultPod, `$$x=${eq.real.toFixed(8)}\pm ${eq.imag.toFixed(8)}i$$`);
+        }
+        stepsPod.innerHTML = '<pre>Built f(x)=LHS-RHS, estimated polynomial coefficients up to degree 2, then solved by case.</pre>';
+        assumptionsPod.innerHTML = '<pre>Assumed equation is linear/quadratic in x after normalization.</pre>';
+        return;
+      }
+    }
+
+    const expr = normalizeExpr(input);
+    const value = safeEval(expr);
+    renderMath(resultPod, `$$${Number(value.toFixed(10)).toString()}$$`);
+    stepsPod.innerHTML = '<pre>Parsed arithmetic expression and evaluated in strict function scope.</pre>';
+    assumptionsPod.innerHTML = '<pre>Assumed pure arithmetic expression with supported operators.</pre>';
+  } catch (error) {
+    resultPod.textContent = 'Could not compute this input locally. Add an API key to enable AI solving.';
+    stepsPod.innerHTML = `<pre>${escapeHtml(error.message)}</pre>`;
+    assumptionsPod.innerHTML = '<pre>Local symbolic parser currently supports arithmetic, simple equations, polynomial derivatives, and basic speed-unit conversion.</pre>';
+  }
+}
+
+function quickQuadratic() {
+  const a = Number(document.getElementById('qA').value);
+  const b = Number(document.getElementById('qB').value);
+  const c = Number(document.getElementById('qC').value);
+  const out = document.getElementById('quickQuadraticOut');
+  if (![a, b, c].every(Number.isFinite) || a === 0) {
+    out.textContent = 'Need finite a,b,c and a ≠ 0.';
     return;
   }
-
-  const a = safeNumber(document.getElementById('tri-a').value);
-  const b = safeNumber(document.getElementById('tri-b').value);
-  if ([a, b].some((v) => Number.isNaN(v) || v <= 0)) {
-    out.textContent = 'Leg values must both be positive numbers.';
-    return;
+  const d = (b * b) - (4 * a * c);
+  if (d >= 0) {
+    const x1 = (-b + Math.sqrt(d)) / (2 * a);
+    const x2 = (-b - Math.sqrt(d)) / (2 * a);
+    out.textContent = `x1=${x1.toFixed(5)}, x2=${x2.toFixed(5)}`;
+  } else {
+    const real = -b / (2 * a);
+    const imag = Math.sqrt(-d) / Math.abs(2 * a);
+    out.textContent = `${real.toFixed(5)} ± ${imag.toFixed(5)}i`;
   }
-
-  const c = Math.hypot(a, b);
-  renderMath(out, `$$c = \\sqrt{a^2+b^2} = \\sqrt{${a}^2 + ${b}^2} = ${c.toFixed(6)}$$`);
 }
 
 function gcd(a, b) {
@@ -336,108 +286,56 @@ function gcd(a, b) {
   return x;
 }
 
-function primeFactorization(n) {
-  const factors = [];
-  let num = n;
-
-  while (num % 2 === 0) {
-    factors.push(2);
-    num /= 2;
-  }
-  for (let p = 3; p * p <= num; p += 2) {
-    while (num % p === 0) {
-      factors.push(p);
-      num /= p;
-    }
-  }
-  if (num > 1) factors.push(num);
-
-  return factors;
-}
-
-function factorsToLatex(factors) {
-  if (factors.length === 0) return '1';
-  const counts = new Map();
-  factors.forEach((f) => counts.set(f, (counts.get(f) || 0) + 1));
-  return [...counts.entries()]
-    .map(([prime, exp]) => (exp === 1 ? `${prime}` : `${prime}^{${exp}}`))
-    .join(' \\cdot ');
-}
-
-function solveNumberTheory() {
-  const out = document.getElementById('numtheory-result');
-
-  if (toolState.nt === 'prime') {
-    const n = Math.trunc(safeNumber(document.getElementById('nt-n').value));
-    if (!Number.isInteger(n) || n < 2) {
-      out.textContent = 'n must be an integer greater than or equal to 2.';
-      return;
-    }
-
-    const factors = primeFactorization(n);
-    const latex = factorsToLatex(factors);
-    renderMath(out, `$$${n} = ${latex}$$`);
-    return;
-  }
-
-  const a = Math.trunc(safeNumber(document.getElementById('nt-a').value));
-  const b = Math.trunc(safeNumber(document.getElementById('nt-b').value));
-
+function quickNumberTheory() {
+  const a = Math.trunc(Number(document.getElementById('nA').value));
+  const b = Math.trunc(Number(document.getElementById('nB').value));
+  const out = document.getElementById('quickNumberOut');
   if (![a, b].every(Number.isInteger) || a === 0 || b === 0) {
-    out.textContent = 'a and b must be non-zero integers.';
+    out.textContent = 'Need non-zero integers.';
     return;
   }
-
   const g = gcd(a, b);
   const l = Math.abs((a * b) / g);
-  renderMath(out, `$$\\gcd(${a},${b})=${g},\\quad\\mathrm{lcm}(${a},${b})=${l}$$`);
+  out.textContent = `gcd=${g}, lcm=${l}`;
 }
 
-function updateProgressBar() {
-  const scrollTop = window.scrollY;
-  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-  const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-  document.getElementById('progressBar').style.width = `${progress}%`;
+function quickConvert() {
+  const value = Number(document.getElementById('uVal').value);
+  const from = document.getElementById('uFrom').value;
+  const to = document.getElementById('uTo').value;
+  const out = document.getElementById('quickUnitOut');
+
+  if (!Number.isFinite(value)) {
+    out.textContent = 'Enter a valid number.';
+    return;
+  }
+
+  const toMs = { mph: 0.44704, kmh: 0.2777777778, ms: 1 };
+  const fromMs = { mph: 2.2369362921, kmh: 3.6, ms: 1 };
+  const converted = value * toMs[from] * fromMs[to];
+  out.textContent = `${value} ${from} = ${converted.toFixed(5)} ${to}`;
 }
 
-function animateStats() {
-  const cards = document.querySelectorAll('.stat-num[data-count]');
-  cards.forEach((card) => {
-    const target = Number(card.dataset.count);
-    const start = performance.now();
-    const duration = 1100;
-
-    const step = (t) => {
-      const progress = Math.min((t - start) / duration, 1);
-      card.textContent = Math.round(target * progress).toString();
-      if (progress < 1) requestAnimationFrame(step);
-    };
-
-    requestAnimationFrame(step);
-  });
+function clearSavedKey() {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberInput = document.getElementById('rememberApiKey');
+  if (apiKeyInput) apiKeyInput.value = '';
+  if (rememberInput) rememberInput.checked = false;
 }
 
-function initCursorGlow() {
-  const glow = document.getElementById('cursorGlow');
-  window.addEventListener('pointermove', (e) => {
-    glow.style.opacity = '1';
-    glow.style.transform = `translate(${e.clientX - 140}px, ${e.clientY - 140}px)`;
-  });
-}
-
-function initKeyboardSolve() {
-  const input = document.getElementById('problemInput');
-  input.addEventListener('keydown', (event) => {
-    const isCmdEnter = (event.metaKey || event.ctrlKey) && event.key === 'Enter';
-    if (isCmdEnter) handleSolve();
-  });
-}
-
-window.addEventListener('scroll', updateProgressBar);
 window.addEventListener('DOMContentLoaded', () => {
-  // Open first tool by default for faster usage.
-  toggleTool('toolQuadratic');
-  animateStats();
-  initCursorGlow();
-  initKeyboardSolve();
+  const input = document.getElementById('problemInput');
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberInput = document.getElementById('rememberApiKey');
+  const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (savedKey && apiKeyInput) {
+    apiKeyInput.value = savedKey;
+    if (rememberInput) rememberInput.checked = true;
+  }
+  input.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      handleSolve();
+    }
+  });
 });
