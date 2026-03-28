@@ -136,6 +136,17 @@ select:focus { outline: 2px solid rgba(243, 156, 18, 0.35); border-color: var(--
 .ai-grid { margin-top: 0.65rem; display: grid; gap: 0.55rem; }
 .toggle-row { display: flex; align-items: center; gap: 0.55rem; color: var(--muted); }
 .toggle-row input { width: auto; }
+.btn-clear {
+  border: 1px solid #44506d;
+  background: transparent;
+  color: #d7e0f5;
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+.btn-clear:hover { border-color: var(--accent); color: #ffe4b4; }
 
 .result-area { margin-top: 1rem; display: grid; gap: 0.72rem; }
 .pod {

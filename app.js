@@ -1,5 +1,7 @@
 window.__futureflowAppLoaded = true;
 
+const API_KEY_STORAGE_KEY = 'futureflow_openai_api_key';
+
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',
@@ -178,9 +180,15 @@ async function handleSolve() {
   const resultPod = document.getElementById('resultPod');
   const stepsPod = document.getElementById('stepsPod');
   const assumptionsPod = document.getElementById('assumptionsPod');
-  const apiKey = document.getElementById('openaiApiKey').value.trim();
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberApiKey = document.getElementById('rememberApiKey');
+  const apiKey = apiKeyInput.value.trim();
   const model = document.getElementById('openaiModel').value.trim();
   const useOpenAI = document.getElementById('useOpenAI').checked;
+
+  if (rememberApiKey?.checked && apiKey) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  }
 
   if (!input) return;
 
@@ -308,8 +316,23 @@ function quickConvert() {
   out.textContent = `${value} ${from} = ${converted.toFixed(5)} ${to}`;
 }
 
+function clearSavedKey() {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberInput = document.getElementById('rememberApiKey');
+  if (apiKeyInput) apiKeyInput.value = '';
+  if (rememberInput) rememberInput.checked = false;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('problemInput');
+  const apiKeyInput = document.getElementById('openaiApiKey');
+  const rememberInput = document.getElementById('rememberApiKey');
+  const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (savedKey && apiKeyInput) {
+    apiKeyInput.value = savedKey;
+    if (rememberInput) rememberInput.checked = true;
+  }
   input.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       handleSolve();

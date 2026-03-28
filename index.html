@@ -63,6 +63,11 @@
               <input type="checkbox" id="useOpenAI" checked />
               <span>Use AI enhancement when a key exists</span>
             </label>
+            <label class="toggle-row">
+              <input type="checkbox" id="rememberApiKey" />
+              <span>Remember key on this device (localStorage)</span>
+            </label>
+            <button type="button" class="btn-clear" onclick="clearSavedKey()">Clear saved key</button>
           </div>
         </details>
       </div>
