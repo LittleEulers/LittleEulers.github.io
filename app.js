@@ -95,6 +95,8 @@ async function solveWithOpenAI(problem, apiKey, model) {
 function cleanArithmeticExpression(problem) {
   return problem
     .trim()
+    .replace(/²/g, '^2')
+    .replace(/³/g, '^3')
     .replace(/[?]/g, '')
     .replace(/=\s*$/, '')
     .replace(/\s+/g, ' ')
@@ -119,7 +121,13 @@ function trySimpleEval(problem) {
 }
 
 function trySolveEquation(problem) {
-  const raw = problem.trim().replace(/\s+/g, '');
+  const normalizedProblem = problem
+    .trim()
+    .replace(/²/g, '^2')
+    .replace(/³/g, '^3');
+
+  const embedded = normalizedProblem.match(/([0-9xX+\-*/().^\s]+=[0-9xX+\-*/().^\s]+)/);
+  const raw = (embedded ? embedded[1] : normalizedProblem).replace(/\s+/g, '');
   if (!raw.includes('=') || (raw.match(/=/g) || []).length !== 1) return null;
   if (!/^[0-9xX+\-*/().=^]+$/.test(raw)) return null;
 
