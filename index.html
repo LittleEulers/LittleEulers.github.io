@@ -3,15 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FutureFlow · Math Hub</title>
-  <meta name="description" content="FutureFlow Math Hub — AI-powered math solver and specialized calculators." />
+  <title>FutureFlow | Computational Intelligence</title>
+  <meta name="description" content="FutureFlow is an AI-native computational engine for math, algebra, equations, units, and quick scientific reasoning." />
 
-  <!-- Fonts: Orbitron (display) + Space Mono (mono) + Outfit (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- KaTeX -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
@@ -20,409 +18,123 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="grid-bg" aria-hidden="true"></div>
 
-  <!-- Custom cursor glow -->
-  <div class="cursor-glow" id="cursorGlow"></div>
-
-  <!-- Particle canvas -->
-  <canvas id="particleCanvas"></canvas>
-
-  <!-- Grain texture overlay -->
-  <div class="grain-overlay"></div>
-
-  <!-- ═══════════ HEADER ═══════════ -->
-  <header class="site-header" id="siteHeader">
-    <div class="header-inner">
-      <a href="#" class="logo">
-        <div class="logo-orb">
-          <span>FF</span>
-          <div class="logo-orb-ring"></div>
-          <div class="logo-orb-pulse"></div>
-        </div>
-        <div class="logo-text-wrap">
-          <span class="logo-name">FutureFlow</span>
-          <span class="logo-tagline">MATH HUB</span>
-        </div>
-      </a>
-
-      <nav class="header-nav">
-        <a href="#solver" class="nav-link">AI Solver</a>
-        <a href="#tools" class="nav-link">Quick Tools</a>
-        <a href="#features" class="nav-link">Features</a>
-      </nav>
-
-      <a href="#solver" class="header-cta">
-        <span>Launch Solver</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-      </a>
-
-      <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">FF</div>
+      <div>
+        <p class="brand-name">FutureFlow</p>
+        <p class="brand-sub">Computational Intelligence</p>
+      </div>
     </div>
-    <!-- Reading progress bar -->
-    <div class="progress-bar" id="progressBar"></div>
+    <div class="topbar-right">
+      <span class="status-dot"></span>
+      <span>Live AI Calculator</span>
+    </div>
   </header>
 
-  <!-- ═══════════ HERO ═══════════ -->
-  <section class="hero" id="hero">
-    <!-- Ambient rings -->
-    <div class="hero-ring ring-1"></div>
-    <div class="hero-ring ring-2"></div>
-    <div class="hero-ring ring-3"></div>
+  <main class="layout">
+    <section class="query-shell">
+      <h1>Ask one input. Get structured answers.</h1>
+      <p class="subtitle">A Wolfram-inspired interface redesigned for FutureFlow: pods, assumptions, and AI-backed steps without cloning another product.</p>
 
-    <!-- Floating math glyphs -->
-    <div class="float-glyphs" aria-hidden="true">
-      <span style="--x:7%;--y:18%;--d:0s;--s:2.2rem">∑</span>
-      <span style="--x:86%;--y:12%;--d:0.6s;--s:1.8rem">π</span>
-      <span style="--x:12%;--y:72%;--d:1.1s;--s:2rem">∫</span>
-      <span style="--x:81%;--y:68%;--d:1.7s;--s:1.6rem">√</span>
-      <span style="--x:47%;--y:85%;--d:2.2s;--s:1.4rem">∞</span>
-      <span style="--x:93%;--y:42%;--d:0.3s;--s:2rem">Δ</span>
-      <span style="--x:2%;--y:48%;--d:2.8s;--s:1.5rem">θ</span>
-      <span style="--x:57%;--y:8%;--d:1.4s;--s:1.7rem">λ</span>
-      <span style="--x:30%;--y:92%;--d:3s;--s:1.3rem">φ</span>
-      <span style="--x:70%;--y:90%;--d:0.9s;--s:1.6rem">Ω</span>
-    </div>
+      <div class="query-card">
+        <label for="problemInput">Enter any math/science style query</label>
+        <textarea id="problemInput" rows="3" placeholder="Examples: solve x^2-5x+6=0 · derivative of x^3 + 2x · 45 mph in m/s · simplify (3/4 + 1/8)"></textarea>
 
-    <div class="hero-content">
-      <div class="hero-badge">
-        <div class="badge-pulse"></div>
-        <span>⚡ AI-Powered · LaTeX Rendered · Competition Ready</span>
-      </div>
+        <div class="controls">
+          <button id="solveBtn" class="btn-primary" onclick="handleSolve()">Compute</button>
+          <span class="hint">Ctrl/Cmd + Enter</span>
+        </div>
 
-      <h1 class="hero-title">
-        <div class="title-line" style="--i:0">Solve <em>Any</em></div>
-        <div class="title-line accent-line" style="--i:1">Math Problem</div>
-        <div class="title-line" style="--i:2">Instantly.</div>
-      </h1>
-
-      <p class="hero-desc">
-        From arithmetic to AMC competition prep — your all-in-one intelligent math engine with textbook-quality typesetting.
-      </p>
-
-      <div class="hero-btns">
-        <a href="#solver" class="btn-primary">
-          <span>Start Solving</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          <div class="btn-primary-shine"></div>
-        </a>
-        <a href="#tools" class="btn-outline">
-          <span>Explore Tools</span>
-        </a>
-      </div>
-    </div>
-
-    <div class="scroll-cue">
-      <div class="scroll-wheel"></div>
-      <span>scroll</span>
-    </div>
-  </section>
-
-  <!-- ═══════════ STATS ═══════════ -->
-  <section class="stats-band" id="statsBand">
-    <div class="stats-inner">
-      <div class="stat-card">
-        <span class="stat-num" data-count="4">0</span>
-        <span class="stat-suffix"></span>
-        <span class="stat-label">Calculators</span>
-      </div>
-      <div class="stat-sep"></div>
-      <div class="stat-card">
-        <span class="stat-num" data-count="100">0</span>
-        <span class="stat-suffix">%</span>
-        <span class="stat-label">Free Forever</span>
-      </div>
-      <div class="stat-sep"></div>
-      <div class="stat-card">
-        <span class="stat-num">&lt;10</span>
-        <span class="stat-suffix">ms</span>
-        <span class="stat-label">Solve Time</span>
-      </div>
-      <div class="stat-sep"></div>
-      <div class="stat-card">
-        <span class="stat-num">∞</span>
-        <span class="stat-suffix"></span>
-        <span class="stat-label">Problems</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════ APP LAYOUT ═══════════ -->
-  <main class="app-layout">
-
-    <!-- ── SOLVER PANEL ── -->
-    <section class="solver-panel glass-panel" id="solver">
-      <div class="panel-eyebrow">
-        <span class="eyebrow-num">01</span>
-        <span class="eyebrow-bar"></span>
-        <span class="eyebrow-text">AI Math Solver</span>
-      </div>
-      <h2 class="panel-h2">Ask <em>Anything</em></h2>
-      <p class="panel-desc">Arithmetic, algebra, geometry, word problems — all handled.</p>
-
-      <div class="textarea-wrap">
-        <textarea
-          id="problemInput"
-          class="solver-textarea"
-          rows="3"
-          placeholder="e.g.  2x² + 5x − 3 = 0   ·   √144 + 7²   ·   'A train at 60mph for 2.5h…'"
-          aria-label="Math problem input"
-        ></textarea>
-        <div class="textarea-corner tl"></div>
-        <div class="textarea-corner tr"></div>
-        <div class="textarea-corner bl"></div>
-        <div class="textarea-corner br"></div>
-      </div>
-
-      <div class="solver-config">
-        <div class="config-grid">
-          <div class="field full">
-            <label for="openaiApiKey">OpenAI API Key (optional)</label>
-            <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="openaiModel">Model</label>
-            <input type="text" id="openaiModel" value="gpt-4.1-mini" />
-          </div>
-          <div class="field field-check">
-            <label for="useOpenAI">Solver Mode</label>
-            <label class="check-row">
+        <details class="ai-config">
+          <summary>AI settings (optional)</summary>
+          <div class="ai-grid">
+            <div>
+              <label for="openaiApiKey">OpenAI API key</label>
+              <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" />
+            </div>
+            <div>
+              <label for="openaiModel">Model</label>
+              <input type="text" id="openaiModel" value="gpt-4.1-mini" />
+            </div>
+            <label class="toggle-row">
               <input type="checkbox" id="useOpenAI" checked />
-              <span>Use OpenAI when key is present</span>
+              <span>Use AI enhancement when a key exists</span>
             </label>
           </div>
-        </div>
-        <p class="config-note">Tip: For production, proxy API calls through your backend instead of exposing keys in browser code.</p>
+        </details>
       </div>
 
-      <div class="solver-bar">
-        <span class="kb-hint">⌘ Enter to solve</span>
-        <button class="btn-solve" id="solveBtn" onclick="handleSolve()">
-          <span class="btn-label">Solve</span>
-          <span class="btn-arrow">→</span>
-          <div class="btn-ripple"></div>
-          <div class="btn-glow-effect"></div>
-        </button>
-      </div>
-
-      <!-- Result -->
-      <div class="solver-result" id="solverResult" hidden>
-        <div class="result-topbar">
-          <div class="result-status">
-            <span class="status-dot"></span>
-            <span>Solution</span>
-          </div>
-          <button class="copy-btn" onclick="copyOutput()" title="Copy">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          </button>
+      <section id="resultArea" class="result-area" hidden>
+        <div class="pod">
+          <div class="pod-head"><h2>Input interpretation</h2></div>
+          <div id="interpretationPod" class="pod-body mono"></div>
         </div>
-        <div class="result-body" id="resultBody"></div>
-        <div class="result-steps" id="resultSteps"></div>
-      </div>
 
-      <!-- Thinking overlay -->
-      <div class="think-overlay" id="thinkOverlay" hidden>
-        <div class="think-box">
-          <div class="think-orb">
-            <div class="orb-core"></div>
-            <div class="orb-r r1"></div>
-            <div class="orb-r r2"></div>
-            <div class="orb-r r3"></div>
-            <div class="orb-particles"></div>
-          </div>
-          <p class="think-msg" id="thinkMsg">Parsing expression…</p>
-          <div class="think-progress">
-            <div class="think-progress-fill" id="thinkProgress"></div>
-          </div>
+        <div class="pod">
+          <div class="pod-head"><h2>Result</h2></div>
+          <div id="resultPod" class="pod-body"></div>
         </div>
-      </div>
+
+        <div class="pod two-col">
+          <article>
+            <div class="pod-head"><h2>Step-by-step</h2></div>
+            <div id="stepsPod" class="pod-body"></div>
+          </article>
+          <article>
+            <div class="pod-head"><h2>Assumptions</h2></div>
+            <div id="assumptionsPod" class="pod-body"></div>
+          </article>
+        </div>
+      </section>
     </section>
 
-    <!-- ── TOOLS PANEL ── -->
-    <aside class="tools-panel" id="tools">
-      <div class="panel-eyebrow">
-        <span class="eyebrow-num">02</span>
-        <span class="eyebrow-bar"></span>
-        <span class="eyebrow-text">Quick Tools</span>
-      </div>
-      <h2 class="panel-h2">Calculators</h2>
+    <aside class="sidebar">
+      <h3>Quick compute panels</h3>
 
-      <!-- Tool: Quadratic -->
-      <div class="tool-card glass-panel" id="toolQuadratic">
-        <button class="tool-header" onclick="toggleTool('toolQuadratic')" aria-expanded="false">
-          <div class="tool-icon-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l4-8 4 8M6 16h4M17 4v8M14 8l3-4 3 4"/></svg>
-          </div>
-          <div class="tool-info">
-            <strong>Quadratic Formula</strong>
-            <code>ax² + bx + c = 0</code>
-          </div>
-          <div class="tool-chevron">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </button>
-        <div class="tool-body">
-          <div class="inputs-row">
-            <div class="field"><label>a</label><input type="number" id="q-a" value="1" step="any" /></div>
-            <div class="field"><label>b</label><input type="number" id="q-b" value="5" step="any" /></div>
-            <div class="field"><label>c</label><input type="number" id="q-c" value="-6" step="any" /></div>
-          </div>
-          <button class="btn-tool" onclick="solveQuadratic()"><span>Calculate</span><div class="shine"></div></button>
-          <div class="tool-output" id="quadratic-result"></div>
+      <div class="mini-card">
+        <h4>Quadratic roots</h4>
+        <div class="inline-inputs">
+          <input id="qA" type="number" value="1" step="any" />
+          <input id="qB" type="number" value="-5" step="any" />
+          <input id="qC" type="number" value="6" step="any" />
         </div>
+        <button class="btn-secondary" onclick="quickQuadratic()">Solve</button>
+        <div id="quickQuadraticOut" class="mini-out"></div>
       </div>
 
-      <!-- Tool: Triangle -->
-      <div class="tool-card glass-panel" id="toolTriangle">
-        <button class="tool-header" onclick="toggleTool('toolTriangle')" aria-expanded="false">
-          <div class="tool-icon-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 20H2z"/></svg>
-          </div>
-          <div class="tool-info">
-            <strong>Triangle Solver</strong>
-            <code>Area &amp; Hypotenuse</code>
-          </div>
-          <div class="tool-chevron">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </button>
-        <div class="tool-body">
-          <div class="tab-row">
-            <button class="tab active" onclick="switchTab('tri','area',this)">Area</button>
-            <button class="tab" onclick="switchTab('tri','hyp',this)">Hypotenuse</button>
-          </div>
-          <div class="tab-pane active" id="tri-area">
-            <div class="inputs-row">
-              <div class="field"><label>Base</label><input type="number" id="tri-base" value="6" step="any" /></div>
-              <div class="field"><label>Height</label><input type="number" id="tri-height" value="4" step="any" /></div>
-            </div>
-          </div>
-          <div class="tab-pane" id="tri-hyp">
-            <div class="inputs-row">
-              <div class="field"><label>Leg a</label><input type="number" id="tri-a" value="3" step="any" /></div>
-              <div class="field"><label>Leg b</label><input type="number" id="tri-b" value="4" step="any" /></div>
-            </div>
-          </div>
-          <button class="btn-tool" onclick="solveTriangle()"><span>Calculate</span><div class="shine"></div></button>
-          <div class="tool-output" id="triangle-result"></div>
+      <div class="mini-card">
+        <h4>GCD / LCM</h4>
+        <div class="inline-inputs">
+          <input id="nA" type="number" value="84" step="1" />
+          <input id="nB" type="number" value="36" step="1" />
         </div>
+        <button class="btn-secondary" onclick="quickNumberTheory()">Compute</button>
+        <div id="quickNumberOut" class="mini-out"></div>
       </div>
 
-      <!-- Tool: Number Theory -->
-      <div class="tool-card glass-panel" id="toolNumtheory">
-        <button class="tool-header" onclick="toggleTool('toolNumtheory')" aria-expanded="false">
-          <div class="tool-icon-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          </div>
-          <div class="tool-info">
-            <strong>Number Theory</strong>
-            <code>Primes · GCD · LCM</code>
-          </div>
-          <div class="tool-chevron">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </button>
-        <div class="tool-body">
-          <div class="tab-row">
-            <button class="tab active" onclick="switchTab('nt','prime',this)">Factorize</button>
-            <button class="tab" onclick="switchTab('nt','gcdlcm',this)">GCD / LCM</button>
-          </div>
-          <div class="tab-pane active" id="nt-prime">
-            <div class="field full"><label>Integer n</label><input type="number" id="nt-n" value="360" min="2" /></div>
-          </div>
-          <div class="tab-pane" id="nt-gcdlcm">
-            <div class="inputs-row">
-              <div class="field"><label>a</label><input type="number" id="nt-a" value="48" /></div>
-              <div class="field"><label>b</label><input type="number" id="nt-b" value="18" /></div>
-            </div>
-          </div>
-          <button class="btn-tool" onclick="solveNumberTheory()"><span>Calculate</span><div class="shine"></div></button>
-          <div class="tool-output" id="numtheory-result"></div>
+      <div class="mini-card">
+        <h4>Unit converter</h4>
+        <div class="inline-inputs">
+          <input id="uVal" type="number" value="45" step="any" />
+          <select id="uFrom">
+            <option value="mph">mph</option>
+            <option value="kmh">km/h</option>
+            <option value="ms">m/s</option>
+          </select>
+          <select id="uTo">
+            <option value="ms">m/s</option>
+            <option value="mph">mph</option>
+            <option value="kmh">km/h</option>
+          </select>
         </div>
+        <button class="btn-secondary" onclick="quickConvert()">Convert</button>
+        <div id="quickUnitOut" class="mini-out"></div>
       </div>
     </aside>
   </main>
-
-  <!-- ═══════════ FEATURES ═══════════ -->
-  <section class="features-section" id="features">
-    <div class="features-inner">
-      <div class="section-header">
-        <div class="section-eyebrow">Why FutureFlow?</div>
-        <h2 class="section-title">Built for serious learners</h2>
-      </div>
-      <div class="features-grid">
-        <div class="feat-card glass-panel">
-          <div class="feat-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-          </div>
-          <h3>AI-Powered Core</h3>
-          <p>Regex engine handles arithmetic instantly. Swap in Gemini or GPT-4 for word problems in one function call.</p>
-        </div>
-        <div class="feat-card glass-panel">
-          <div class="feat-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h7"/><path d="M15 14l2 2 4-4"/></svg>
-          </div>
-          <h3>LaTeX Rendering</h3>
-          <p>Every result rendered in textbook-quality math via KaTeX — fractions, radicals, subscripts, all of it.</p>
-        </div>
-        <div class="feat-card glass-panel">
-          <div class="feat-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <h3>AMC Prep Ready</h3>
-          <p>Number theory, quadratics, geometry — the exact tools students need for competition mathematics.</p>
-        </div>
-        <div class="feat-card glass-panel">
-          <div class="feat-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
-          </div>
-          <h3>Mobile First</h3>
-          <p>Fully responsive from 320px to 4K. Designed with touch-first inputs and clean spacing on every device.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════ FOOTER ═══════════ -->
-  <footer class="site-footer">
-    <div class="footer-glow-bar"></div>
-    <div class="footer-inner">
-      <div class="footer-left">
-        <div class="logo">
-          <div class="logo-orb small">
-            <span>FF</span>
-            <div class="logo-orb-ring"></div>
-          </div>
-          <div class="logo-text-wrap">
-            <span class="logo-name">FutureFlow</span>
-            <span class="logo-tagline">MATH HUB</span>
-          </div>
-        </div>
-        <p class="footer-copy">© 2025 FutureFlow · Crafted for learners everywhere</p>
-      </div>
-      <nav class="footer-nav">
-        <a href="#solver">Solver</a>
-        <a href="#tools">Tools</a>
-        <a href="#features">Features</a>
-      </nav>
-    </div>
-  </footer>
-
-  <!-- Mobile Nav -->
-  <div class="mobile-nav" id="mobileNav">
-    <div class="mobile-nav-backdrop"></div>
-    <div class="mobile-nav-panel">
-      <button class="mobile-close" onclick="toggleMenu()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-      <nav>
-        <a href="#solver" onclick="toggleMenu()" style="--i:0">AI Solver</a>
-        <a href="#tools"  onclick="toggleMenu()" style="--i:1">Quick Tools</a>
-        <a href="#features" onclick="toggleMenu()" style="--i:2">Features</a>
-      </nav>
-    </div>
-  </div>
 
   <script src="app.js"></script>
 </body>
