@@ -50,8 +50,20 @@ function placeholderLLMSolve(problem) {
   };
 }
 
+function cleanArithmeticExpression(problem) {
+  return problem
+    .trim()
+    .replace(/[?]/g, '')
+    .replace(/=\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/\^/g, '**');
+}
+
 function trySimpleEval(problem) {
-  const normalized = problem.trim().replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/\^/g, '**');
+  const normalized = cleanArithmeticExpression(problem);
   const safePattern = /^[\d\s+\-*/().,%!*]+$/;
   if (!safePattern.test(normalized)) return null;
 
@@ -62,6 +74,73 @@ function trySimpleEval(problem) {
   const value = Function(`'use strict'; return (${percentAdjusted});`)();
   if (!Number.isFinite(value)) throw new Error('Result was not finite');
   return value;
+}
+
+function trySolveEquation(problem) {
+  const raw = problem.trim().replace(/\s+/g, '');
+  if (!raw.includes('=') || (raw.match(/=/g) || []).length !== 1) return null;
+  if (!/^[0-9xX+\-*/().=^]+$/.test(raw)) return null;
+
+  const [leftRaw, rightRaw] = raw.split('=');
+  if (!leftRaw || !rightRaw) return null;
+
+  const normalizeSide = (side) => side
+    .replace(/\^/g, '**')
+    .replace(/(\d)([xX])/g, '$1*$2')
+    .replace(/([xX])(\d)/g, '$1*$2')
+    .replace(/([xX])\(/g, '$1*(')
+    .replace(/\)([xX\d])/g, ')*$1');
+
+  const left = normalizeSide(leftRaw);
+  const right = normalizeSide(rightRaw);
+
+  const safePattern = /^[0-9xX+\-*/().]+$/;
+  if (!safePattern.test(left) || !safePattern.test(right)) return null;
+
+  // eslint-disable-next-line no-new-func
+  const fn = Function('x', `'use strict'; return ((${left}) - (${right}));`);
+  const f0 = Number(fn(0));
+  const f1 = Number(fn(1));
+  const f2 = Number(fn(2));
+
+  if (![f0, f1, f2].every(Number.isFinite)) return null;
+
+  const c = f0;
+  const a = (f2 - (2 * f1) + f0) / 2;
+  const b = f1 - a - c;
+  const eps = 1e-9;
+
+  if (Math.abs(a) < eps && Math.abs(b) < eps) {
+    if (Math.abs(c) < eps) {
+      return { type: 'identity', latex: '$$\\text{Infinitely many solutions}$$' };
+    }
+    return { type: 'contradiction', latex: '$$\\text{No solution}$$' };
+  }
+
+  if (Math.abs(a) < eps) {
+    const x = -c / b;
+    return {
+      type: 'linear',
+      latex: `$$${b.toFixed(6)}x + ${c.toFixed(6)} = 0$$ $$x = ${x.toFixed(6)}$$`
+    };
+  }
+
+  const d = (b * b) - (4 * a * c);
+  if (d >= 0) {
+    const x1 = (-b + Math.sqrt(d)) / (2 * a);
+    const x2 = (-b - Math.sqrt(d)) / (2 * a);
+    return {
+      type: 'quadratic-real',
+      latex: `$$x = \\frac{-(${b.toFixed(6)}) \\pm \\sqrt{${d.toFixed(6)}}}{${(2 * a).toFixed(6)}}$$ $$x_1=${x1.toFixed(6)},\\;x_2=${x2.toFixed(6)}$$`
+    };
+  }
+
+  const real = -b / (2 * a);
+  const imag = Math.sqrt(-d) / Math.abs(2 * a);
+  return {
+    type: 'quadratic-complex',
+    latex: `$$x = ${real.toFixed(6)} \\pm ${imag.toFixed(6)}i$$`
+  };
 }
 
 async function handleSolve() {
@@ -95,10 +174,14 @@ async function handleSolve() {
   try {
     let resultText = '';
     const simpleValue = trySimpleEval(raw);
+    const equationResult = simpleValue === null ? trySolveEquation(raw) : null;
 
     if (simpleValue !== null) {
       resultText = `$$\\text{Result} = ${Number(simpleValue.toFixed(10)).toString()}$$`;
       steps.innerHTML = '<ol><li>Input recognized as arithmetic expression.</li><li>Evaluated safely in a strict expression context.</li><li>Rendered as LaTeX.</li></ol>';
+    } else if (equationResult) {
+      resultText = equationResult.latex;
+      steps.innerHTML = '<ol><li>Input recognized as an equation in <code>x</code>.</li><li>Polynomial coefficients estimated (up to degree 2).</li><li>Solution rendered in LaTeX.</li></ol>';
     } else {
       const llmResult = placeholderLLMSolve(raw);
       resultText = `$$\\text{Mode}: ${llmResult.mode}$$<br/>${llmResult.latex}`;
