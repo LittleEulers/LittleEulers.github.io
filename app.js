@@ -1,4 +1,5 @@
 // FutureFlow Math Hub logic.
+window.__futureflowAppLoaded = true;
 
 const toolState = {
   tri: 'area',
@@ -48,6 +49,47 @@ function placeholderLLMSolve(problem) {
     mode: 'llm-placeholder',
     latex: `I parsed this as a word/problem-solving query:\\[4pt]\\texttt{${problem.replace(/\\/g, '\\\\').replace(/_/g, '\\_')}}\\[4pt]Connect this function to Gemini/OpenAI for step-by-step reasoning.`
   };
+}
+
+async function solveWithOpenAI(problem, apiKey, model) {
+  const instructions = [
+    'You are a math tutor.',
+    'Solve the user problem clearly.',
+    'Return concise output with two sections using plain text:',
+    'FINAL_ANSWER: (single line result)',
+    'STEPS: (short numbered steps, may include LaTeX wrapped with $...$ or $$...$$).'
+  ].join(' ');
+
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model || 'gpt-4.1-mini',
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: instructions }] },
+        { role: 'user', content: [{ type: 'input_text', text: problem }] }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error (${response.status}): ${errorText.slice(0, 180)}`);
+  }
+
+  const data = await response.json();
+  const text = (data.output_text || '').trim();
+  if (!text) throw new Error('OpenAI response did not include output_text.');
+
+  const finalMatch = text.match(/FINAL_ANSWER:\\s*([\\s\\S]*?)(?:\\nSTEPS:|$)/i);
+  const stepsMatch = text.match(/STEPS:\\s*([\\s\\S]*)$/i);
+  const finalAnswer = (finalMatch?.[1] || text).trim();
+  const stepText = (stepsMatch?.[1] || 'No steps provided by model.').trim();
+
+  return { finalAnswer, stepText, raw: text };
 }
 
 function cleanArithmeticExpression(problem) {
@@ -153,6 +195,9 @@ async function handleSolve() {
   const msg = document.getElementById('thinkMsg');
 
   const raw = inputEl.value.trim();
+  const apiKey = document.getElementById('openaiApiKey')?.value?.trim() || '';
+  const model = document.getElementById('openaiModel')?.value?.trim() || 'gpt-4.1-mini';
+  const useOpenAI = document.getElementById('useOpenAI')?.checked;
   if (!raw) {
     body.textContent = 'Please enter a problem first.';
     steps.textContent = '';
@@ -173,19 +218,25 @@ async function handleSolve() {
 
   try {
     let resultText = '';
-    const simpleValue = trySimpleEval(raw);
-    const equationResult = simpleValue === null ? trySolveEquation(raw) : null;
-
-    if (simpleValue !== null) {
-      resultText = `$$\\text{Result} = ${Number(simpleValue.toFixed(10)).toString()}$$`;
-      steps.innerHTML = '<ol><li>Input recognized as arithmetic expression.</li><li>Evaluated safely in a strict expression context.</li><li>Rendered as LaTeX.</li></ol>';
-    } else if (equationResult) {
-      resultText = equationResult.latex;
-      steps.innerHTML = '<ol><li>Input recognized as an equation in <code>x</code>.</li><li>Polynomial coefficients estimated (up to degree 2).</li><li>Solution rendered in LaTeX.</li></ol>';
+    if (useOpenAI && apiKey) {
+      const aiResult = await solveWithOpenAI(raw, apiKey, model);
+      resultText = `$$\\text{AI Result}$$<br/>${aiResult.finalAnswer}`;
+      steps.innerHTML = `<pre>${aiResult.stepText.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}</pre>`;
     } else {
-      const llmResult = placeholderLLMSolve(raw);
-      resultText = `$$\\text{Mode}: ${llmResult.mode}$$<br/>${llmResult.latex}`;
-      steps.innerHTML = '<ol><li>Input contained non-arithmetic symbols/words.</li><li>Routed to placeholder LLM connector.</li><li>Replace <code>placeholderLLMSolve()</code> with a real API call.</li></ol>';
+      const simpleValue = trySimpleEval(raw);
+      const equationResult = simpleValue === null ? trySolveEquation(raw) : null;
+
+      if (simpleValue !== null) {
+        resultText = `$$\\text{Result} = ${Number(simpleValue.toFixed(10)).toString()}$$`;
+        steps.innerHTML = '<ol><li>Input recognized as arithmetic expression.</li><li>Evaluated safely in a strict expression context.</li><li>Rendered as LaTeX.</li></ol>';
+      } else if (equationResult) {
+        resultText = equationResult.latex;
+        steps.innerHTML = '<ol><li>Input recognized as an equation in <code>x</code>.</li><li>Polynomial coefficients estimated (up to degree 2).</li><li>Solution rendered in LaTeX.</li></ol>';
+      } else {
+        const llmResult = placeholderLLMSolve(raw);
+        resultText = `$$\\text{Mode}: ${llmResult.mode}$$<br/>${llmResult.latex}`;
+        steps.innerHTML = '<ol><li>Input contained non-arithmetic symbols/words.</li><li>No API key was provided, so local fallback was used.</li><li>Add key to use OpenAI for full natural-language solving.</li></ol>';
+      }
     }
 
     renderMath(body, resultText);

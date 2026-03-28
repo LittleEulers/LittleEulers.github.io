@@ -246,6 +246,32 @@ a { color: inherit; text-decoration: none; }
 
 .solver-bar { margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; }
 .kb-hint { font-size: 0.82rem; color: var(--muted); }
+.solver-config {
+  margin-top: 0.8rem;
+  border: 1px solid #2b3650;
+  border-radius: 12px;
+  padding: 0.72rem;
+  background: rgba(14, 20, 34, 0.92);
+}
+.config-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr 1fr;
+  gap: 0.6rem;
+}
+.field-check { align-content: end; }
+.check-row {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  color: #d5dcec;
+  font-size: 0.88rem;
+}
+.check-row input { width: auto; }
+.config-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.79rem;
+  color: var(--muted);
+}
 
 .solver-result {
   margin-top: 1rem;
@@ -266,6 +292,12 @@ a { color: inherit; text-decoration: none; }
 .result-steps { padding: 0.8rem; }
 .result-body { font-size: 1.05rem; border-bottom: 1px solid rgba(47, 58, 82, 0.7); }
 .result-steps { color: #c4cede; font-size: 0.93rem; }
+.result-steps pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "Space Mono", monospace;
+  font-size: 0.84rem;
+}
 
 .think-overlay {
   position: absolute; inset: 0;
@@ -377,6 +409,7 @@ input:focus { outline: 2px solid rgba(255, 153, 0, 0.32); border-color: var(--ac
   .stats-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
   .stat-sep { display: none; }
   .inputs-row { grid-template-columns: 1fr; }
+  .config-grid { grid-template-columns: 1fr; }
   .features-grid { grid-template-columns: 1fr; }
   .hero { padding-top: 3rem; }
 }
