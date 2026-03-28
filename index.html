@@ -1,1 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FutureFlow Math Solver</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; }
+        .container { background: white; padding: 20px; margin: 50px auto; width: 300px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
+        input { width: 80%; padding: 10px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #FF9900; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Math Solver</h1>
+        <input type="text" id="problem" placeholder="Enter problem (e.g. 5 + 5)">
+        <button onclick="solve()">Solve</button>
+        <h2 id="result"></h2>
+    </div>
 
+    <script>
+        function solve() {
+            let input = document.getElementById("problem").value;
+            try {
+                // This is a simple JS solver; later we will connect your AI/Python logic!
+                let answer = eval(input); 
+                document.getElementById("result").innerText = "Answer: " + answer;
+            } catch (e) {
+                document.getElementById("result").innerText = "Error! Try again.";
+            }
+        }
+    </script>
+</body>
+</html>
