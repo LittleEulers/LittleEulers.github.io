@@ -1,16 +1,72 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"
-  <title>Calculator</title>
-  <link rel="stylesheet" href="style.css">
-</head> 
-<body>
-  
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Math Alpha Replica</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Math<span>Alpha</span></div>
+      <div class="tag">Computational knowledge engine replica</div>
+    </header>
 
+    <main class="layout">
+      <section class="input-panel">
+        <label for="query">Enter what you want to calculate</label>
+        <div class="query-row">
+          <input
+            id="query"
+            type="text"
+            placeholder="Examples: 2+2, solve x^2-5x+6=0, derivative x^3 + 2x"
+          />
+          <button id="computeBtn">Compute</button>
+        </div>
 
+        <div class="quick-actions">
+          <button class="quick" data-query="2+2">2 + 2</button>
+          <button class="quick" data-query="sqrt(144)">sqrt(144)</button>
+          <button class="quick" data-query="solve x^2-5x+6=0">Solve quadratic</button>
+          <button class="quick" data-query="derivative x^3 + 2x">Derivative</button>
+          <button class="quick" data-query="integral 0 to 1 of x^2">Integral</button>
+          <button class="quick" data-query="factor x^2-9">Factor</button>
+        </div>
 
+        <div class="keyboard-wrap">
+          <h3>Math Keyboard</h3>
+          <div id="mathKeyboard" class="math-keyboard"></div>
+        </div>
+      </section>
 
-  
-</body>  
+      <section class="results-panel">
+        <article class="pod" id="podInput">
+          <h4>Input interpretation</h4>
+          <pre id="inputInterpretation">-</pre>
+        </article>
+
+        <article class="pod" id="podResult">
+          <h4>Result</h4>
+          <pre id="resultText">Type a query and click Compute.</pre>
+        </article>
+
+        <article class="pod" id="podSteps">
+          <h4>Steps / Details</h4>
+          <pre id="stepsText">-</pre>
+        </article>
+
+        <article class="pod calculator-pod">
+          <h4>Calculator</h4>
+          <div class="calc-display" id="calcDisplay">0</div>
+          <div class="calc-grid" id="calcGrid"></div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footnote">
+      This is an educational front-end replica inspired by Wolfram|Alpha styling and workflow.
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
 </html>
