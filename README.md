@@ -10,3 +10,9 @@ A Wolfram|Alpha-inspired single-page app with:
 ## Run locally
 
 Open `index.html` in your browser.
+
+## Extra example
+
+A Next.js API route TypeScript example for generating structured review responses with the OpenAI SDK is available at:
+
+- `examples/review-response-route.ts`
