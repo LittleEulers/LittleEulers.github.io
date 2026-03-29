@@ -1,12 +1,15 @@
 :root {
-  --bg: #f2f4f8;
+  --bg: #edf2fb;
   --panel: #ffffff;
-  --text: #1c2431;
-  --muted: #5b677b;
-  --blue: #2f6fda;
-  --blue-dark: #2458ad;
-  --line: #dde3ef;
-  --pod-head: #eff4ff;
+  --text: #1b2435;
+  --muted: #59657b;
+  --brand-1: #232f4f;
+  --brand-2: #314d86;
+  --blue: #2d6cdf;
+  --blue-dark: #1f57b9;
+  --line: #dce4f3;
+  --pod-head: #eef4ff;
+  --shadow: 0 14px 35px rgba(30, 56, 108, 0.08);
 }
 
 * {
@@ -16,17 +19,18 @@
 body {
   margin: 0;
   font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
+  background: radial-gradient(circle at top, #f8fbff 0%, var(--bg) 45%);
   color: var(--text);
 }
 
 .topbar {
-  background: linear-gradient(90deg, #2a3b57, #37517c);
+  background: linear-gradient(100deg, var(--brand-1), var(--brand-2));
   color: #fff;
   padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 6px 18px rgba(20, 33, 58, 0.25);
 }
 
 .brand {
@@ -35,20 +39,20 @@ body {
 }
 
 .brand span {
-  color: #8ec5ff;
+  color: #9fd4ff;
 }
 
 .tag {
   font-size: 0.9rem;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 .layout {
   max-width: 1200px;
-  margin: 18px auto;
+  margin: 20px auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1.08fr 1fr;
+  gap: 18px;
   padding: 0 14px;
 }
 
@@ -56,8 +60,9 @@ body {
 .results-panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px;
+  box-shadow: var(--shadow);
 }
 
 label {
@@ -76,8 +81,13 @@ label {
   flex: 1;
   font-size: 1.05rem;
   padding: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid #cfd9ec;
   border-radius: 10px;
+}
+
+#query:focus {
+  border-color: #8eb5ff;
+  outline: 3px solid #dce9ff;
 }
 
 #computeBtn {
@@ -102,11 +112,17 @@ label {
 }
 
 .quick {
-  border: 1px solid var(--line);
-  background: #f9fbff;
+  border: 1px solid #d0dbf0;
+  background: #f8fbff;
   border-radius: 999px;
   padding: 7px 12px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick:hover {
+  transform: translateY(-1px);
+  background: #eef5ff;
 }
 
 .keyboard-wrap {
@@ -163,39 +179,19 @@ label {
   min-height: 58px;
 }
 
-.calculator-pod {
-  padding-bottom: 12px;
+.latex-preview-pod {
+  margin-top: 12px;
 }
 
-.calc-display {
-  margin: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+.latex-preview,
+.result-latex {
   padding: 12px;
-  text-align: right;
-  font-size: 1.2rem;
-  min-height: 50px;
+  min-height: 48px;
+  background: #fbfdff;
 }
 
-.calc-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 0 12px;
-}
-
-.calc-btn {
-  padding: 12px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  cursor: pointer;
-  background: #fff;
-  font-weight: 700;
-}
-
-.calc-btn.primary {
-  background: #edf4ff;
-  border-color: #c3d7fb;
+.result-latex {
+  border-top: 1px solid var(--line);
 }
 
 .footnote {

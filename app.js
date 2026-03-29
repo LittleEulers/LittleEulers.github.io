@@ -2,7 +2,9 @@ const queryInput = document.getElementById("query");
 const computeBtn = document.getElementById("computeBtn");
 const inputInterpretation = document.getElementById("inputInterpretation");
 const resultText = document.getElementById("resultText");
+const resultLatex = document.getElementById("resultLatex");
 const stepsText = document.getElementById("stepsText");
+const latexPreview = document.getElementById("latexPreview");
 const quickButtons = document.querySelectorAll(".quick");
 const keyboardContainer = document.getElementById("mathKeyboard");
 
@@ -47,6 +49,7 @@ keys.forEach((k) => {
   btn.textContent = k;
   btn.addEventListener("click", () => {
     queryInput.value += k;
+    updateLivePreview();
     queryInput.focus();
   });
   keyboardContainer.appendChild(btn);
@@ -55,11 +58,13 @@ keys.forEach((k) => {
 quickButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     queryInput.value = btn.dataset.query;
+    updateLivePreview();
     runQuery();
   });
 });
 
 computeBtn.addEventListener("click", runQuery);
+queryInput.addEventListener("input", updateLivePreview);
 queryInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") runQuery();
 });
@@ -92,6 +97,35 @@ function formatNum(n) {
   if (!Number.isFinite(n)) return String(n);
   if (Math.abs(n) < 1e-12) return "0";
   return Number(n.toFixed(10)).toString();
+}
+
+function toLatex(raw) {
+  if (!raw.trim()) return "\\text{Type an expression to preview}";
+  return raw
+    .replace(/\s+/g, " ")
+    .replace(/pi|π/gi, "\\pi")
+    .replace(/sqrt\(([^)]+)\)/gi, "\\sqrt{$1}")
+    .replace(/(\w+)\^([\w.]+)/g, "$1^{$2}")
+    .replace(/\*/g, "\\cdot ")
+    .replace(/integral\s+(.+)\s+to\s+(.+)\s+of\s+(.+)/i, "\\int_{$1}^{$2} $3 \\, dx")
+    .replace(/derivative\s+(.+)/i, "\\frac{d}{dx}($1)")
+    .replace(/solve\s+(.+)/i, "\\text{solve } $1");
+}
+
+function renderLatex(target, latex) {
+  if (window.katex && target) {
+    try {
+      window.katex.render(latex, target, { throwOnError: false, displayMode: true });
+      return;
+    } catch {
+      // fallback below
+    }
+  }
+  target.textContent = latex;
+}
+
+function updateLivePreview() {
+  renderLatex(latexPreview, toLatex(queryInput.value));
 }
 
 function derivePower(expr) {
@@ -173,13 +207,17 @@ function factorSimple(expr) {
   return null;
 }
 
+function setResult(mainText, latexText = "") {
+  resultText.textContent = mainText;
+  renderLatex(resultLatex, latexText || toLatex(mainText));
+}
+
 function runQuery() {
   const raw = queryInput.value.trim();
   if (!raw) return;
   const q = raw.toLowerCase();
 
   inputInterpretation.textContent = raw;
-  resultText.textContent = "Computing...";
   stepsText.textContent = "";
 
   try {
@@ -187,10 +225,10 @@ function runQuery() {
       const expr = raw.slice(6).trim();
       const solved = solvePolynomial(expr);
       if (solved) {
-        resultText.textContent = solved.result;
+        setResult(solved.result, toLatex(solved.result));
         stepsText.textContent = solved.details;
       } else {
-        resultText.textContent = "Could not parse equation. Try forms like x^2-5x+6=0";
+        setResult("Could not parse equation. Try forms like x^2-5x+6=0");
         stepsText.textContent = "Supported: linear/quadratic in x.";
       }
       return;
@@ -200,11 +238,11 @@ function runQuery() {
       const expr = raw.slice("derivative ".length).trim();
       const symbolic = derivePower(expr);
       if (symbolic) {
-        resultText.textContent = `d/dx ${expr} = ${symbolic}`;
+        setResult(`d/dx ${expr} = ${symbolic}`, `\\frac{d}{dx}(${toLatex(expr)})=${toLatex(symbolic)}`);
         stepsText.textContent = "Applied symbolic rule for power/trig function.";
       } else {
         const at1 = numericDerivative(expr, 1);
-        resultText.textContent = `Numeric derivative near x=1: ${formatNum(at1)}`;
+        setResult(`Numeric derivative near x=1: ${formatNum(at1)}`, `f'(1)\\approx ${formatNum(at1)}`);
         stepsText.textContent = "Used centered finite-difference: (f(x+h)-f(x-h))/(2h).";
       }
       return;
@@ -213,7 +251,7 @@ function runQuery() {
     if (q.startsWith("integral ")) {
       const m = raw.match(/integral\s+(.+)\s+to\s+(.+)\s+of\s+(.+)/i);
       if (!m) {
-        resultText.textContent = "Format: integral a to b of expression_in_x";
+        setResult("Format: integral a to b of expression_in_x");
         stepsText.textContent = "Example: integral 0 to 2 of x^2";
         return;
       }
@@ -221,7 +259,7 @@ function runQuery() {
       const b = Number(safeEval(m[2]));
       const expr = m[3];
       const val = numericIntegral(expr, a, b);
-      resultText.textContent = `∫(${a}→${b}) ${expr} dx ≈ ${formatNum(val)}`;
+      setResult(`∫(${a}→${b}) ${expr} dx ≈ ${formatNum(val)}`, `\\int_{${a}}^{${b}} ${toLatex(expr)} \\, dx \\approx ${formatNum(val)}`);
       stepsText.textContent = "Computed using Simpson's Rule (n=500).";
       return;
     }
@@ -230,83 +268,22 @@ function runQuery() {
       const expr = raw.slice(7).trim();
       const factored = factorSimple(expr);
       if (factored) {
-        resultText.textContent = `${expr} = ${factored}`;
+        setResult(`${expr} = ${factored}`, `${toLatex(expr)}=${toLatex(factored)}`);
         stepsText.textContent = "Integer factor search for monic quadratic.";
       } else {
-        resultText.textContent = "Could not factor with current rules.";
+        setResult("Could not factor with current rules.");
         stepsText.textContent = "Supported: x^2+bx+c with integer roots.";
       }
       return;
     }
 
     const val = safeEval(raw);
-    resultText.textContent = formatNum(val);
+    setResult(formatNum(val), `${toLatex(raw)}=${formatNum(val)}`);
     stepsText.textContent = "Direct numeric evaluation with built-in parser.";
   } catch (err) {
-    resultText.textContent = `Error: ${err.message}`;
+    setResult(`Error: ${err.message}`);
     stepsText.textContent = "Try expressions like 2+2, sin(1), solve x^2-5x+6=0, derivative x^3.";
   }
 }
 
-// Calculator widget
-const calcDisplay = document.getElementById("calcDisplay");
-const calcGrid = document.getElementById("calcGrid");
-const calcButtons = [
-  "7",
-  "8",
-  "9",
-  "/",
-  "4",
-  "5",
-  "6",
-  "*",
-  "1",
-  "2",
-  "3",
-  "-",
-  "0",
-  ".",
-  "=",
-  "+",
-  "C",
-  "(",
-  ")",
-  "ANS"
-];
-let calcExpr = "";
-let calcAns = "0";
-
-calcButtons.forEach((b) => {
-  const btn = document.createElement("button");
-  btn.className = `calc-btn ${["=", "C", "ANS"].includes(b) ? "primary" : ""}`;
-  btn.textContent = b;
-  btn.addEventListener("click", () => onCalcPress(b));
-  calcGrid.appendChild(btn);
-});
-
-function onCalcPress(key) {
-  if (key === "C") {
-    calcExpr = "";
-    calcDisplay.textContent = "0";
-    return;
-  }
-  if (key === "ANS") {
-    calcExpr += calcAns;
-    calcDisplay.textContent = calcExpr;
-    return;
-  }
-  if (key === "=") {
-    try {
-      const val = safeEval(calcExpr || "0");
-      calcAns = formatNum(val);
-      calcExpr = calcAns;
-      calcDisplay.textContent = calcAns;
-    } catch {
-      calcDisplay.textContent = "Error";
-      calcExpr = "";
-    }
-    return;
-  }
-  calcExpr += key;
-  calcDisplay.textContent = calcExpr;
-}
+updateLivePreview();
