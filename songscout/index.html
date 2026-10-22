@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111119">
+  <title>SongScout — Offline Music Library</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101018; --panel:#191923; --panel2:#222231; --text:#f6f5ff; --muted:#aaa9bd; --accent:#a78bfa; --mint:#68e0c0; --border:#343447; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 10% 0%, #292143 0%, transparent 40%), var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .wrap { width:min(1050px, 100% - 32px); margin:auto; padding:36px 0 120px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:32px; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; font-size:1.15rem; letter-spacing:.2px; }
+    .logo { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,var(--accent),var(--mint)); color:#171522; font-size:23px; }
+    .pill { border:1px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:999px; font-size:.83rem; }
+    .hero { max-width:740px; margin:30px 0 26px; }
+    .eyebrow { color:var(--mint); font-size:.78rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; }
+    h1 { font-size:clamp(2.2rem,7vw,4.25rem); line-height:1.03; letter-spacing:-2px; margin:10px 0 16px; }
+    h1 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:650px; margin:0; font-size:1.03rem; }
+    .searchbar { display:flex; gap:10px; margin:28px 0 12px; }
+    .searchbar input { min-width:0; flex:1; border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:14px; padding:15px 16px; font:inherit; outline:none; }
+    .searchbar input:focus { border-color:var(--accent); box-shadow:0 0 0 3px #a78bfa22; }
+    .count { color:var(--muted); font-size:.9rem; margin:12px 2px 18px; }
+    .tracks { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:14px; }
+    .track { background:linear-gradient(140deg,#1c1c29,#171720); border:1px solid var(--border); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+    .track-top { display:flex; align-items:center; gap:13px; min-width:0; }
+    .cover { flex:0 0 58px; width:58px; height:58px; border-radius:13px; display:grid; place-items:center; background:linear-gradient(135deg,#514174,#235b56); font-size:25px; }
+    .meta { min-width:0; }
+    .meta h2 { margin:0 0 3px; font-size:1.02rem; overflow-wrap:anywhere; }
+    .meta p { color:var(--muted); margin:0; font-size:.88rem; overflow-wrap:anywhere; }
+    .format { color:var(--mint); font-size:.74rem; font-weight:750; text-transform:uppercase; letter-spacing:1px; }
+    .actions { display:flex; gap:9px; margin-top:auto; }
+    button, .download { border:0; border-radius:11px; padding:10px 13px; font:inherit; font-weight:750; text-decoration:none; text-align:center; cursor:pointer; }
+    .play { background:var(--panel2); color:var(--text); flex:1; border:1px solid var(--border); }
+    .download { background:var(--mint); color:#10201d; flex:1; }
+    button:hover, .download:hover { filter:brightness(1.08); }
+    .empty { grid-column:1/-1; border:1px dashed #4c4961; background:#19192399; border-radius:18px; padding:28px; color:var(--muted); }
+    .empty h2 { color:var(--text); margin:0 0 8px; }
+    .help { margin-top:24px; padding:18px 20px; border:1px solid var(--border); border-radius:16px; background:#161620bb; color:var(--muted); font-size:.92rem; }
+    .help strong { color:var(--text); }
+    .help code { color:#e0d8ff; background:#29283a; border-radius:5px; padding:2px 5px; }
+    .player { position:fixed; z-index:5; bottom:0; left:0; right:0; padding:12px max(16px, calc((100vw - 1050px)/2)); border-top:1px solid var(--border); background:#12121bea; backdrop-filter:blur(18px); }
+    .player-label { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:6px; color:var(--muted); font-size:.83rem; }
+    #nowPlaying { color:var(--text); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    audio { width:100%; height:34px; }
+    footer { margin-top:24px; color:#77768b; font-size:.78rem; text-align:center; }
+    @media(max-width:500px) { .wrap{width:calc(100% - 22px);padding-top:22px}.searchbar{flex-direction:column}h1{letter-spacing:-1px}.player{padding:10px 11px} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="brand"><div class="logo" aria-hidden="true">♫</div><span>SongScout</span></div>
+      <div class="pill">Your music • Your library</div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">Find it. Save it. Listen offline.</div>
+      <h1>Your music,<br><span>wherever you are.</span></h1>
+      <p>Search the library, play a track, or download an audio file while you’re online so it’s ready for offline listening later.</p>
+    </section>
+
+    <label class="searchbar" aria-label="Search music">
+      <input id="search" type="search" placeholder="Search by song, artist, or album…" autocomplete="off">
+    </label>
+    <div class="count" id="count">Loading library…</div>
+    <section id="tracks" class="tracks" aria-live="polite"></section>
+
+    <aside class="help">
+      <strong>For the person managing this library:</strong> add audio files you own or have permission to share to the <code>music</code> folder, then add each file to the <code>TRACKS</code> list near the bottom of this HTML file. Use a matching filename such as <code>music/my-song.mp3</code>. MP3 and M4A are good audio choices; an MP4 file will only play if it contains an audio format the browser supports. Keep filenames simple.
+      <br><br><strong>Offline tip:</strong> visitors must download files while online. To use the whole site with no internet, include the HTML and authorized audio files in a ZIP and download that ZIP before school.
+    </aside>
+    <footer>Share only music you have the rights or permission to distribute. Spotify offline downloads stay inside Spotify and cannot be exported as ordinary audio files.</footer>
+  </main>
+
+  <div class="player">
+    <div class="player-label"><span id="nowPlaying">Choose a song to start listening</span><span>PLAYER</span></div>
+    <audio id="audio" controls preload="none"></audio>
+  </div>
+
+  <script>
+    // ADD YOUR AUTHORIZED AUDIO FILES HERE.
+    // Put each file in the music/ folder, then replace the example values below.
+    // Example: { title: "My Song", artist: "Artist Name", album: "Album", file: "music/my-song.mp3" }
+    const TRACKS = [
+      // { title: "Song One", artist: "Artist Name", album: "Album Name", file: "music/song-one.mp3" },
+      // { title: "Song Two", artist: "Another Artist", album: "Single", file: "music/song-two.m4a" },
+    ];
+
+    const tracksEl = document.getElementById('tracks');
+    const searchEl = document.getElementById('search');
+    const countEl = document.getElementById('count');
+    const audio = document.getElementById('audio');
+    const nowPlaying = document.getElementById('nowPlaying');
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function playTrack(track) {
+      audio.src = track.file;
+      audio.load();
+      nowPlaying.textContent = `${track.title} — ${track.artist}`;
+      audio.play().catch(() => {
+        nowPlaying.textContent = `Ready to play: ${track.title} — press Play on the player`;
+      });
+    }
+
+    function render() {
+      const query = searchEl.value.trim().toLowerCase();
+      const filtered = TRACKS.filter(track => [track.title, track.artist, track.album].join(' ').toLowerCase().includes(query));
+      countEl.textContent = `${filtered.length} ${filtered.length === 1 ? 'song' : 'songs'}${query ? ' found' : ' in your library'}`;
+
+      if (TRACKS.length === 0) {
+        tracksEl.innerHTML = `<div class="empty"><h2>Your library is ready for music.</h2><p>No tracks have been added yet. Edit the <code>TRACKS</code> list in <code>index.html</code>, and put matching, shareable audio files in the <code>music</code> folder. Example entry is included in the code comments.</p></div>`;
+        return;
+      }
+      if (filtered.length === 0) {
+        tracksEl.innerHTML = `<div class="empty"><h2>No matching songs</h2><p>Try a different song title, artist, or album.</p></div>`;
+        return;
+      }
+
+      tracksEl.innerHTML = filtered.map((track, i) => {
+        const ext = (track.file.split('.').pop() || 'audio').split('?')[0].toUpperCase();
+        return `<article class="track">
+          <div class="track-top"><div class="cover" aria-hidden="true">♫</div><div class="meta"><h2>${escapeHtml(track.title)}</h2><p>${escapeHtml(track.artist)}${track.album ? ' · ' + escapeHtml(track.album) : ''}</p></div></div>
+          <div class="format">${escapeHtml(ext)} AUDIO FILE</div>
+          <div class="actions"><button class="play" type="button" data-play="${i}">▶ Play</button><a class="download" href="${escapeHtml(track.file)}" download>↓ Download</a></div>
+        </article>`;
+      }).join('');
+
+      tracksEl.querySelectorAll('[data-play]').forEach(button => {
+        button.addEventListener('click', () => playTrack(filtered[Number(button.dataset.play)]));
+      });
+    }
+
+    searchEl.addEventListener('input', render);
+    render();
+  </script>
+</body>
+</html>
